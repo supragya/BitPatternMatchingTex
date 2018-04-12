@@ -24,7 +24,9 @@
                              % when including figure files
 \usepackage{multicol}        % used for the two-column index
 \usepackage[bottom]{footmisc}% places footnotes at page bottom
+
 \usepackage{newunicodechar}
+\usepackage{program}
 
 % see the list of further useful packages
 % in the Reference Guide
@@ -76,13 +78,12 @@ Parallel pattern matching involves tasks identification, communication identific
 % and \cite{<label>} for bibliographic references
 % use \sectionmark{}
 % to alter or adjust the section heading in the running head
-Pattern matching involves the process of identifying all patterns in a given text. There are many practical applications for pattern matching algorithms. The pattern matching algorithms can be classified with respect to the dimensions of the data. Further classification of these algorithms include the type of pattern matching namely, exact pattern
+Pattern matching involves the process of identifying all patterns in a given text. There are many practical applications in which pattern matching algorithms are applied. The pattern matching algorithms can be classified with respect to the dimensions of the data. Further classification of these algorithms include the type of pattern matching namely, exact pattern
 matching and approximate pattern matching.
 
 \subsection{Exact and approximate pattern matching}
 \label{subsec:2}
-Exact pattern matching provides a solution by viewing each text position to be a possible pattern start. For exact pattern matching algorithm, the complexity is O(mn) where m*n is the dimension of the text matrix. Many improvements exist in the literature for exact pattern matching algorithms. Usage of linear automata [1] for the purpose is the most popular technique. This reduces the complexity of the pattern match-
-ing algorithm to be O(m+n). Good-suffix heuristic algorithm proposed in [2] provides an improved performance of O(n) with constant space requirement. In [3], bad character rule strategy is generalized and improves the performance of the pattern matching algorithm with time complexity of O(n/m). Simple pattern searching algorithm proposed in [4] improves the average time complexity to be O(m+n).
+Exact pattern matching provides a solution by viewing each text position to be a possible pattern start. For exact pattern matching algorithm, the complexity is O(mn) where m*n is the dimension of the text matrix. Many improvements exist in the literature for exact pattern matching algorithms. Usage of linear automata [1] for the purpose is the most popular technique. This reduces the complexity of the pattern matching algorithm to be O(m+n). Good-suffix heuristic algorithm proposed in [2] provides an improved performance of O(n) with constant space requirement. In [3], bad character rule strategy is generalized and improves the performance of the pattern matching algorithm with time complexity of O(n/m). Simple pattern searching algorithm proposed in [4] improves the average time complexity to be O(m+n).
 
 Approximate parallel pattern matching algorithms works on the principle that a error can be tolerated by the pattern match. Say for example if a particular pattern match algorithm with pattern size of ‘m’ can tolerate ‘n’ error bits, approximate pattern matching algorithm will find out all the matches with ‘m to m-n’ matching bits. This matching will be particularly useful for bigger images. Parallelizing of the above categories of algorithms can be performed in different ways. This is highlighted in section 2.2.
 
@@ -90,6 +91,10 @@ Approximate parallel pattern matching algorithms works on the principle that a e
 \label{subsec:2}
 
 Approximate and exact pattern matching algorithms falls into the category of finite and non-deterministic automata. Parallelizing these algorithms for better performance has evolved and there are many perspectives to this in the literature. Parallel algorithms that consider bit pattern mapping for parallelization is described in this section.
+
+Many traditional algorithms like Shift-Or[9] and Shift-And[10] algorithms form the basis of almost all Deterministic Finite State automata based pattern matching algorithms. These finite state automata are stored in form of bits. Hence, for pattern text of size $n$, there are $n$ bits to store all the prefixes of match in the text.  Algorithms such as KMP are a good example of this. Recent work in the domain of pattern matching like Bit Parallel Wide window[12] and Backward Non Deterministic Matching [11] reduces the $n$ bits requirements in favour of computation cost. These research directions are based on the idea that matches in strings of large alphabet size is often sparse and not all prefixes are needed to be stored for the matching.
+
+Reverse factor[5], linear DAWG matching[6], BSDM using Q-Grams and shift-xor[7] and Two way shift-or[13] are manifestations of the popular Shift-Or algorithm itself and apply the domain specific constraints to efficiently parallelise the shift-or algorithm.
 
 \section{eMDPM Algorithm}
 \label{sec:3}
@@ -99,18 +104,60 @@ Approximate and exact pattern matching algorithms falls into the category of fin
 % use \sectionmark{}
 % to alter or adjust the section heading in the running head
 
-\subsection{The cuShift-or algorithm}
-\label{subsec:1}
+The eMDMP algorithm rests heavily on the developments done in[1] and takes over much of these concepts to build upon in this paper. The nomenclature and a few of the terms that are used in the algorithm that follows are:
+
+\begin{itemize}
+\item{$M$ are used for denoting masks. Masks are state storing variables and can take any of 2\textsuperscript{n} combination of bits. They are 0 wherever there is a match of certain character and 1 otherwise. This mask is then reversed. For instance in string "AABAB", the mask M\textsubscript{A} is 10100 (swapped from 00101, the positions of A).}
+\item{R is the residue vector, bit of which denote the matching of all prefixes of pattern P on text T. (See p3 [1] for further reading). }
+\item{$\langle a,b \rangle$ denotes the binary operator [dot] used in SO exact matching. (see p5 [1] for further reading). }
+\item{$a \vert b$ denotes the Shift-Or operations done in cuShiftOr. This takes advantage of multiple threads and computing S matrix. The S matrix denote the residual values extracted from R. X is the final result vector. }
+\end{itemize}
 
 \subsection{Proposed algorithm}
-\label{subsec:2}
+\label{subsec:1}
 
-\subsection{An example}
-\label{subsec:3}
-The working of the algorithm is explained here with an example. Let us take an image which is grayscale image of dimension 512 x 512 as shown in Fig 1. The pattern to be searched is also attached in Fig 1.
+\textbf{Input}: A text $T$ of n\textsubscript{1} x n\textsubscript{2} and pattern $P$ of m\textsubscript{1} x m\textsubscript{2} \newline
+\textbf{Output}: A matrix $X$ of size (n\textsubscript{1} - m\textsubscript{1} + 1) x (n\textsubscript{2} - m\textsubscript{2} + 1) indicating matching positions
+
+\begin{program}
+\BEGIN \\ %
+	Initialise .. Masks .\textsl{M}\textsubscript{1}\textsl{, M}\textsubscript{2}\textsl{, ... M}\textsubscript{n}. for .the .test .image .T.
+  \FOR i:=\textsl{1} \TO \textsl{n\textsubscript{1}-m\textsubscript{1}-1} \DO
+  	\FOR j:=\textsl{0} \TO \textsl{m\textsubscript{1}-1} \DO
+  	A\textsubscript{0}:= \langle \textsl{0,1}\textsuperscript{\textsl{m}} \rangle
+  	A\textsubscript{k}:= \langle \textsl{1,M}\textsubscript{\textsl{k}} \rangle for.all.k.in.\textsl{0 $\leq$ k $\leq$ n1}
+  		\FOR k:=\textsl{0} \TO \textsl{n\textsubscript{2}} \DO in parallel
+  			R\textsubscript{k}:= sum(\textsl{A}\textsubscript{0}\textsl{,A}\textsubscript{1}\textsl{,...A}\textsubscript{k}) \rcomment{Inclusive Scan}
+  		\END
+  		\langle \textsl{u}\textsubscript{\textsl{k}} \textsl{,S}\textsubscript{\textsl{j,k}}\rangle:= R\textsubscript{k} ..for.all..\textsl{0 $\leq$ k $\leq$ n2}
+  	\END
+  	\FOR j:=\textsl{m2} \TO \textsl{n2} \DO
+  		y\textsubscript{j}:= \textsl{S}\textsubscript{i,j}\vert\textsl{S}\textsubscript{i+1,j}\vert\textsl{...}\vert\textsl{S}\textsubscript{i+m1-1,j} \rcomment{Shift-Or}
+  		X[i][j\textsl{-}m\textsubscript{2}\textsl{+1}]:= y\textsubscript{j}[m\textsubscript{2}]
+ 	\END
+ \END
+\END
+\end{program}
+
+
+An example run of the above given algorithm can be summarised using the following figure ~\ref{fig:1}.
+\begin{figure}
+\sidecaption
+% Use the relevant command for your figure-insertion program
+% to insert the figure file.
+% For example, with the graphicx style use
+\includegraphics[scale=.50]{workingsys.eps}
+%
+% If no graphics program available, insert a blank space i.e. use
+%\picplace{5cm}{2cm} % Give the correct figure height and width in cm
+%
+\caption{Matching operation in two dimensional systems. For higher dimensions, multiple summations occur to gather matrix C; first on dimension 1 to give intermediate set C1; on them, summation on dimension 2 is done etc. Process continues till all dimensions are summed upon to give final C, hence A}
+\label{fig:1}       % Give a unique label
+\end{figure}
+
 
 \subsection{Tile based data decomposition}
-\label{subsec:4}
+\label{subsec:3}
 Tile based data decomposition is used for improved performance in the GPU. Tiles of size $w*w$ are shared among multiple SPs(Stream Processors) for processing .This improves the performance by reducing the redundant reads otherwise needed in the system. The parallelism is performed by considering the data are stored as a single linear array of values. The single linear array values are then loaded to the shared memory of the SP to be used by multiple threads of the same block. To synchronize the operation, after each tile read, a $\_\_syncthreads()$ function is called for performing a barrier like wait till all the threads in the same block has completed loading input to the tile. In the considered algorithm, this tile based data load has greatly improved the performance of the system. The data update is done in the shared memory is shown in the following figure.
 
 \begin{figure}
@@ -124,7 +171,7 @@ Tile based data decomposition is used for improved performance in the GPU. Tiles
 %\picplace{5cm}{2cm} % Give the correct figure height and width in cm
 %
 \caption{Storing of image and pattern as tile in shared memory of GPU}
-\label{fig:1}       % Give a unique label
+\label{fig:2}       % Give a unique label
 \end{figure}
 
 \section{Result and analysis}
@@ -182,4 +229,6 @@ In the Fig 3, the performance of eMDPM algorithm for different values of $w$ is 
 \label{sec:5}
 In this paper an efficient multi-dimensional parallel pattern matching algorithm is proposed and analyzed. The performance of the proposed algorithm with multidimensional images is much improved compared to existing algorithms. The implementation of the proposed algorithm is done using GPU. The proposed algorithm works well with GPU architecture by increasing CGMA ratio. Proposed algorithm makes use of tiles for data caching which improves the performance of pattern matching in GPU based architectures. The proposed algorithm is an exact bit pattern matching one. This can be extended for approximate pattern matching in the future. The role of warp size on the efficiency of the pattern matching algorithm for bigger sized patterns can also be explored in the future work.
 
+
+\input{referenc}
 \end{document}

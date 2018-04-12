@@ -1,0 +1,9 @@
+Thanks for the reviews on our paper. The following changes have been incorporated as per you suggestion in the paper:
+
+1. "There are many practical applications for pattern matching algorithms" has been rewritten as "There are many practical applications in which pattern matching algorithms are applied".
+
+2. Section on PARALLEL BIT PATTERN MATCHING ALGORITHMS has a rework and the key ideas of the algorithms are mentioned and connected to the idea of eMDPM.
+
+3. Algorithm has a new explanation to aid in the illustration of eMDPM points. The algorithm has been restructured and the key terms have been amply explained for the context.
+
+The paper has been rewritten as per Springer's required format.
